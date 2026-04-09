@@ -26,11 +26,11 @@ class ShineOn_Integration {
 	 */
 	public function add_admin_menu() {
 		add_menu_page(
-			'ShineOn Settings',
+			'ShineOn',
 			'ShineOn',
 			'manage_options',
 			'shineon-settings',
-			array( $this, 'render_settings_page' ),
+			array( $this, 'render_tabbed_page' ),
 			'dashicons-admin-tools',
 			65
 		);
@@ -62,7 +62,7 @@ class ShineOn_Integration {
 	 * Render settings section
 	 */
 	public function render_settings_section() {
-		echo 'Enter your ShineOn API credentials below. Documentation can be found at <a href="https://github.com/ShineOnCom/api/wiki/How-to-make-an-API-Request" target="_blank">ShineOn API Documentation</a>';
+		echo 'Enter your ShineOn API credentials below. Your ShineOn API key can be found <a href="https://teamshineon.zendesk.com/hc/en-us/articles/10120654767121-The-ShineOn-API" target="_blank">here</a>.';
 	}
 
 	/**
@@ -75,21 +75,89 @@ class ShineOn_Integration {
 	}
 
 	/**
-	 * Render settings page
+	 * Render tabbed settings page
 	 */
-	public function render_settings_page() {
+	public function render_tabbed_page() {
+		$tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'api-key';
 		?>
 		<div class="wrap">
-			<h1>ShineOn Settings</h1>
-			<form method="post" action="options.php">
+			<h1>ShineOn</h1>
+
+			<!-- Tab Navigation -->
+			<div class="nav-tab-wrapper" style="border-bottom: 2px solid #ccc; padding-bottom: 0; margin: 20px 0 0 0;">
+				<a href="?page=shineon-settings&tab=api-key" class="nav-tab <?php echo $tab === 'api-key' ? 'nav-tab-active' : ''; ?>" style="<?php echo $tab === 'api-key' ? 'border-top: 3px solid #0073aa; border-bottom: none; background: #f1f1f1;' : 'border-top: 3px solid transparent;'; ?>">
+					API Key
+				</a>
+				<a href="?page=shineon-settings&tab=products" class="nav-tab <?php echo $tab === 'products' ? 'nav-tab-active' : ''; ?>" style="<?php echo $tab === 'products' ? 'border-top: 3px solid #0073aa; border-bottom: none; background: #f1f1f1;' : 'border-top: 3px solid transparent;'; ?>">
+					My Products
+				</a>
+			</div>
+
+			<!-- Tab Content -->
+			<div class="shineon-tab-content" style="background: #fff; padding: 20px; margin-top: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
 				<?php
-				settings_fields( 'shineon_settings' );
-				do_settings_sections( 'shineon_settings' );
-				submit_button();
+				if ( $tab === 'products' ) {
+					$this->render_products_tab();
+				} else {
+					$this->render_api_key_tab();
+				}
 				?>
-			</form>
+			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Render API Key Tab
+	 */
+	public function render_api_key_tab() {
+		?>
+		<form method="post" action="options.php">
+			<?php
+			settings_fields( 'shineon_settings' );
+			do_settings_sections( 'shineon_settings' );
+			submit_button();
+			?>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Render Products Tab
+	 */
+	public function render_products_tab() {
+		$api_key = get_option( 'shineon_api_key' );
+		?>
+		<div class="shineon-products-container">
+			<?php if ( ! $api_key ) : ?>
+				<div style="background: #fff8e5; padding: 15px; border-left: 4px solid #ffb81c; margin-bottom: 20px;">
+					<p style="margin: 0; color: #666;">
+						<strong>API Key not configured.</strong> Please configure your ShineOn API Key in the <a href="?page=shineon-settings&tab=api-key">"API Key" tab</a> to view your products.
+					</p>
+				</div>
+			<?php else : ?>
+				<h3 style="margin-top: 0;">Your ShineOn Products</h3>
+				<p style="color: #666;">Your products synced from ShineOn will appear here.</p>
+
+				<div style="background: #f9f9f9; padding: 20px; border-radius: 6px; margin-top: 15px; text-align: center;">
+					<p style="color: #999; margin: 0;">
+						<em>Loading products from ShineOn API...</em>
+					</p>
+				</div>
+
+				<p style="margin-top: 20px; color: #666; font-size: 13px;">
+					<strong>Note:</strong> This feature will display all products associated with your ShineOn account.
+				</p>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render settings page (deprecated - kept for backwards compatibility)
+	 */
+	public function render_settings_page() {
+		$this->render_tabbed_page();
 	}
 
 	/**
