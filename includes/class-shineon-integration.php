@@ -231,6 +231,36 @@ class ShineOn_Integration {
 
 		$products_list = $filtered_products;
 
+		// Get sort parameters from URL
+		$orderby = isset( $_GET['orderby'] ) ? sanitize_text_field( $_GET['orderby'] ) : 'created_at';
+		$order = isset( $_GET['order'] ) ? sanitize_text_field( $_GET['order'] ) : 'desc';
+		$order = in_array( $order, array( 'asc', 'desc' ) ) ? $order : 'desc';
+
+		// Sort products
+		usort( $products_list, function( $a, $b ) use ( $orderby, $order ) {
+			$a_val = $a[ $orderby ] ?? '';
+			$b_val = $b[ $orderby ] ?? '';
+
+			if ( $a_val === $b_val ) {
+				return 0;
+			}
+
+			$comparison = ( $a_val < $b_val ) ? -1 : 1;
+			return $order === 'asc' ? $comparison : -$comparison;
+		} );
+
+		// Get current page URL for sorting links
+		$base_url = admin_url( 'admin.php' );
+		$created_sort_url = add_query_arg( 
+			array( 
+				'page' => 'shineon-settings',
+				'tab' => 'products',
+				'orderby' => 'created_at', 
+				'order' => ( $orderby === 'created_at' && $order === 'desc' ) ? 'asc' : 'desc'
+			), 
+			$base_url 
+		);
+
 		?>
 		<table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
 			<thead>
@@ -243,7 +273,16 @@ class ShineOn_Integration {
 					<th>Variant Title</th>
 					<th style="width: 100px;">Base Cost</th>
 					<th style="width: 150px;">Mask Image</th>
-					<th style="width: 150px;">Created</th>
+					<th style="width: 150px; cursor: pointer;">
+						<a href="<?php echo esc_url( $created_sort_url ); ?>" style="color: inherit; text-decoration: none;">
+							Created
+							<?php 
+							if ( $orderby === 'created_at' ) {
+								echo $order === 'asc' ? ' ▲' : ' ▼';
+							}
+							?>
+						</a>
+					</th>
 				</tr>
 			</thead>
 			<tbody>
