@@ -212,6 +212,25 @@ class ShineOn_Integration {
 
 		$products_list = isset( $products['skus'] ) ? $products['skus'] : $products;
 
+		// Filter products that contain "Partner" or "API" in product_title
+		$filtered_products = array_filter( $products_list, function( $product ) {
+			$product_title = $product['product_title'] ?? '';
+			return stripos( $product_title, 'partner' ) !== false || stripos( $product_title, 'api' ) !== false;
+		} );
+
+		if ( empty( $filtered_products ) ) {
+			?>
+			<div style="background: #e7f3ff; padding: 15px; border-left: 4px solid #0073aa; margin: 20px 0;">
+				<p style="margin: 0; color: #666;">
+					No products matching filters (Partner or API) found in your ShineOn account.
+				</p>
+			</div>
+			<?php
+			return;
+		}
+
+		$products_list = $filtered_products;
+
 		?>
 		<table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
 			<thead>
