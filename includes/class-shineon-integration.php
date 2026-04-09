@@ -137,19 +137,154 @@ class ShineOn_Integration {
 				</div>
 			<?php else : ?>
 				<h3 style="margin-top: 0;">Your ShineOn Products</h3>
-				<p style="color: #666;">Your products synced from ShineOn will appear here.</p>
-
-				<div style="background: #f9f9f9; padding: 20px; border-radius: 6px; margin-top: 15px; text-align: center;">
-					<p style="color: #999; margin: 0;">
-						<em>Loading products from ShineOn API...</em>
-					</p>
-				</div>
-
-				<p style="margin-top: 20px; color: #666; font-size: 13px;">
-					<strong>Note:</strong> This feature will display all products associated with your ShineOn account.
-				</p>
+				<?php $this->render_products_table(); ?>
 			<?php endif; ?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Fetch products from ShineOn API
+	 */
+	private function fetch_shineon_products() {
+		$api_key = get_option( 'shineon_api_key' );
+		if ( ! $api_key ) {
+			return new WP_Error( 'no_api_key', 'API Key not configured' );
+		}
+
+		$url = 'https://api.shineon.com/v1/skus';
+
+		$args = array(
+			'method'  => 'GET',
+			'headers' => array(
+				'Authorization' => 'Bearer ' . $api_key,
+				'Content-Type'  => 'application/json',
+			),
+			'timeout' => 15,
+		);
+
+		$response = wp_remote_request( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			error_log( 'ShineOn Products API Error: ' . $response->get_error_message() );
+			return $response;
+		}
+
+		$response_code = wp_remote_retrieve_response_code( $response );
+		$response_body = wp_remote_retrieve_body( $response );
+
+		if ( $response_code >= 400 ) {
+			error_log( 'ShineOn Products API Error (' . $response_code . '): ' . $response_body );
+			return new WP_Error( 'api_error', 'ShineOn API returned error code: ' . $response_code );
+		}
+
+		$data = json_decode( $response_body, true );
+		return $data;
+	}
+
+	/**
+	 * Render products table
+	 */
+	private function render_products_table() {
+		$products = $this->fetch_shineon_products();
+
+		if ( is_wp_error( $products ) ) {
+			?>
+			<div style="background: #fee; padding: 15px; border-left: 4px solid #dc3545; margin: 20px 0;">
+				<p style="margin: 0; color: #666;">
+					<strong>Error fetching products:</strong> <?php echo esc_html( $products->get_error_message() ); ?>
+				</p>
+			</div>
+			<?php
+			return;
+		}
+
+		if ( empty( $products ) || ( is_array( $products ) && empty( $products['data'] ) ) ) {
+			?>
+			<div style="background: #e7f3ff; padding: 15px; border-left: 4px solid #0073aa; margin: 20px 0;">
+				<p style="margin: 0; color: #666;">
+					No products found in your ShineOn account.
+				</p>
+			</div>
+			<?php
+			return;
+		}
+
+		$products_list = isset( $products['data'] ) ? $products['data'] : $products;
+
+		?>
+		<table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+			<thead>
+				<tr>
+					<th style="width: 120px;">SKU</th>
+					<th style="width: 100px;">SKU ID</th>
+					<th style="width: 150px;">Product Template</th>
+					<th>Title</th>
+					<th>Product Title</th>
+					<th>Variant Title</th>
+					<th style="width: 100px;">Base Cost</th>
+					<th style="width: 150px;">Mask Image</th>
+					<th style="width: 150px;">Created</th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php foreach ( $products_list as $product ) : ?>
+					<tr>
+						<td>
+							<strong><?php echo esc_html( $product['sku'] ?? '—' ); ?></strong>
+						</td>
+						<td>
+							<?php echo esc_html( $product['sku_id'] ?? '—' ); ?>
+						</td>
+						<td>
+							<?php echo esc_html( $product['product_template'] ?? '—' ); ?>
+						</td>
+						<td>
+							<?php echo esc_html( $product['title'] ?? '—' ); ?>
+						</td>
+						<td>
+							<?php echo esc_html( $product['product_title'] ?? '—' ); ?>
+						</td>
+						<td>
+							<?php echo esc_html( $product['variant_title'] ?? '—' ); ?>
+						</td>
+						<td>
+							<?php 
+							$base_cost = $product['base_cost'] ?? null;
+							echo $base_cost !== null ? '$' . number_format( (float) $base_cost, 2 ) : '—';
+							?>
+						</td>
+						<td>
+							<?php 
+							$mask_url = $product['artwork']['mask_src_url'] ?? null;
+							if ( $mask_url ) : 
+								?>
+								<a href="<?php echo esc_url( $mask_url ); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
+									View Image
+								</a>
+							<?php else : ?>
+								—
+							<?php endif; ?>
+						</td>
+						<td>
+							<?php 
+							$created_at = $product['created_at'] ?? null;
+							if ( $created_at ) {
+								$date = new DateTime( $created_at );
+								echo esc_html( $date->format( 'M d, Y' ) );
+							} else {
+								echo '—';
+							}
+							?>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+
+		<p style="color: #666; font-size: 13px; margin-top: 20px;">
+			<strong>Total Products:</strong> <?php echo count( $products_list ); ?>
+		</p>
 		<?php
 	}
 
