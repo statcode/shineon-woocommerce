@@ -5,8 +5,8 @@
  * Plugin URI: https://github.com/statcode/shineon-woocommerce
  * Description: Integrate WooCommerce orders with ShineOn API for order fulfillment.
  * Version: 1.0
- * Author: ShineOn
- * Author URI: https://shineon.com
+ * Author: AuditAct
+ * Author URI: https://auditact.ai
  */
 
 if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) ) {
