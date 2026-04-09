@@ -212,25 +212,6 @@ class ShineOn_Integration {
 
 		$products_list = isset( $products['skus'] ) ? $products['skus'] : $products;
 
-		// Filter products that contain "Partner" or "API" in product_title
-		$filtered_products = array_filter( $products_list, function( $product ) {
-			$product_title = $product['product_title'] ?? '';
-			return stripos( $product_title, 'partner' ) !== false || stripos( $product_title, 'api' ) !== false;
-		} );
-
-		if ( empty( $filtered_products ) ) {
-			?>
-			<div style="background: #e7f3ff; padding: 15px; border-left: 4px solid #0073aa; margin: 20px 0;">
-				<p style="margin: 0; color: #666;">
-					No products matching filters (Partner or API) found in your ShineOn account.
-				</p>
-			</div>
-			<?php
-			return;
-		}
-
-		$products_list = $filtered_products;
-
 		// Get sort parameters from URL
 		$orderby = isset( $_GET['orderby'] ) ? sanitize_text_field( $_GET['orderby'] ) : 'created_at';
 		$order = isset( $_GET['order'] ) ? sanitize_text_field( $_GET['order'] ) : 'desc';
@@ -249,6 +230,16 @@ class ShineOn_Integration {
 			return $order === 'asc' ? $comparison : -$comparison;
 		} );
 
+		// Group products by product_title
+		$grouped_products = array();
+		foreach ( $products_list as $product ) {
+			$product_title = $product['product_title'] ?? 'Untitled Product';
+			if ( ! isset( $grouped_products[ $product_title ] ) ) {
+				$grouped_products[ $product_title ] = array();
+			}
+			$grouped_products[ $product_title ][] = $product;
+		}
+
 		// Get current page URL for sorting links
 		$base_url = admin_url( 'admin.php' );
 		$created_sort_url = add_query_arg( 
@@ -262,14 +253,44 @@ class ShineOn_Integration {
 		);
 
 		?>
-		<table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+		<style>
+			.shineon-accordion-table tbody tr.accordion-header {
+				background: #f5f5f5;
+				font-weight: bold;
+				cursor: pointer;
+			}
+			.shineon-accordion-table tbody tr.accordion-header:hover {
+				background: #ececec;
+			}
+			.shineon-accordion-table tbody tr.accordion-header td {
+				padding: 12px 15px !important;
+			}
+			.shineon-accordion-table tbody tr.accordion-variation {
+				display: none;
+			}
+			.shineon-accordion-table tbody tr.accordion-variation.expanded {
+				display: table-row;
+			}
+			.shineon-accordion-table tbody tr.accordion-variation td {
+				padding-left: 40px !important;
+				border-left: 3px solid #0073aa;
+			}
+			.accordion-toggle-icon {
+				display: inline-block;
+				margin-right: 8px;
+				font-weight: bold;
+				width: 20px;
+			}
+		</style>
+
+		<table class="wp-list-table widefat fixed striped shineon-accordion-table" style="margin-top: 20px;">
 			<thead>
 				<tr>
+					<th style="width: 40px;">Add</th>
 					<th style="width: 120px;">SKU</th>
 					<th style="width: 100px;">SKU ID</th>
 					<th style="width: 150px;">Product Template</th>
 					<th>Title</th>
-					<th>Product Title</th>
 					<th>Variant Title</th>
 					<th style="width: 100px;">Base Cost</th>
 					<th style="width: 150px;">Mask Image</th>
@@ -286,63 +307,102 @@ class ShineOn_Integration {
 				</tr>
 			</thead>
 			<tbody>
-				<?php foreach ( $products_list as $product ) : ?>
-					<tr>
+				<?php $group_index = 0; foreach ( $grouped_products as $product_title => $variations ) : $group_index++; ?>
+					<!-- Product Group Header Row -->
+					<tr class="accordion-header" data-group="<?php echo $group_index; ?>" onclick="toggleAccordion(this, '<?php echo $group_index; ?>')">
 						<td>
-							<strong><?php echo esc_html( $product['sku'] ?? '—' ); ?></strong>
+							<input type="checkbox" class="group-checkbox" data-group="<?php echo $group_index; ?>" onclick="event.stopPropagation(); toggleGroupCheckbox(this, '<?php echo $group_index; ?>')">
 						</td>
-						<td>
-							<?php echo esc_html( $product['sku_id'] ?? '—' ); ?>
-						</td>
-						<td>
-							<?php echo esc_html( $product['product_template'] ?? '—' ); ?>
-						</td>
-						<td>
-							<?php echo esc_html( $product['title'] ?? '—' ); ?>
-						</td>
-						<td>
-							<?php echo esc_html( $product['product_title'] ?? '—' ); ?>
-						</td>
-						<td>
-							<?php echo esc_html( $product['variant_title'] ?? '—' ); ?>
-						</td>
-						<td>
-							<?php 
-							$base_cost = $product['base_cost'] ?? null;
-							echo $base_cost !== null ? '$' . number_format( (float) $base_cost, 2 ) : '—';
-							?>
-						</td>
-						<td>
-							<?php 
-							$mask_url = $product['artwork']['mask_src_url'] ?? null;
-							if ( $mask_url ) : 
-								?>
-								<a href="<?php echo esc_url( $mask_url ); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
-									View Image
-								</a>
-							<?php else : ?>
-								—
-							<?php endif; ?>
-						</td>
-						<td>
-							<?php 
-							$created_at = $product['created_at'] ?? null;
-							if ( $created_at ) {
-								$date = new DateTime( $created_at );
-								echo esc_html( $date->format( 'M d, Y' ) );
-							} else {
-								echo '—';
-							}
-							?>
+						<td colspan="8">
+							<span class="accordion-toggle-icon">▶</span>
+							<strong><?php echo esc_html( $product_title ); ?></strong>
+							<span style="font-size: 12px; color: #666; margin-left: 10px;">
+								(<?php echo count( $variations ); ?> variation<?php echo count( $variations ) !== 1 ? 's' : ''; ?>)
+							</span>
 						</td>
 					</tr>
+
+					<!-- Variation Rows -->
+					<?php foreach ( $variations as $product ) : ?>
+						<tr class="accordion-variation" data-group="<?php echo $group_index; ?>">
+							<td>
+								<input type="checkbox" class="variation-checkbox" data-group="<?php echo $group_index; ?>" onclick="event.stopPropagation()">
+							</td>
+							<td>
+								<strong><?php echo esc_html( $product['sku'] ?? '—' ); ?></strong>
+							</td>
+							<td>
+								<?php echo esc_html( $product['sku_id'] ?? '—' ); ?>
+							</td>
+							<td>
+								<?php echo esc_html( $product['product_template'] ?? '—' ); ?>
+							</td>
+							<td>
+								<?php echo esc_html( $product['title'] ?? '—' ); ?>
+							</td>
+							<td>
+								<?php echo esc_html( $product['variant_title'] ?? '—' ); ?>
+							</td>
+							<td>
+								<?php 
+								$base_cost = $product['base_cost'] ?? null;
+								echo $base_cost !== null ? '$' . number_format( (float) $base_cost, 2 ) : '—';
+								?>
+							</td>
+							<td>
+								<?php 
+								$mask_url = $product['artwork']['mask_src_url'] ?? null;
+								if ( $mask_url ) : 
+									?>
+									<a href="<?php echo esc_url( $mask_url ); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
+										View Image
+									</a>
+								<?php else : ?>
+									—
+								<?php endif; ?>
+							</td>
+							<td>
+								<?php 
+								$created_at = $product['created_at'] ?? null;
+								if ( $created_at ) {
+									$date = new DateTime( $created_at );
+									echo esc_html( $date->format( 'M d, Y' ) );
+								} else {
+									echo '—';
+								}
+								?>
+							</td>
+						</tr>
+					<?php endforeach; ?>
 				<?php endforeach; ?>
 			</tbody>
 		</table>
 
 		<p style="color: #666; font-size: 13px; margin-top: 20px;">
-			<strong>Total Products:</strong> <?php echo count( $products_list ); ?>
+			<strong>Total Product Groups:</strong> <?php echo count( $grouped_products ); ?> | 
+			<strong>Total Variations:</strong> <?php echo count( $products_list ); ?>
 		</p>
+
+		<script>
+			function toggleAccordion(headerElement, groupId) {
+				headerElement.classList.toggle('active');
+				const variations = document.querySelectorAll('.accordion-variation[data-group="' + groupId + '"]');
+				variations.forEach(row => row.classList.toggle('expanded'));
+				
+				const icon = headerElement.querySelector('.accordion-toggle-icon');
+				if (headerElement.classList.contains('active')) {
+					icon.textContent = '▼';
+				} else {
+					icon.textContent = '▶';
+				}
+			}
+
+			function toggleGroupCheckbox(checkbox, groupId) {
+				const isChecked = checkbox.checked;
+				const variationCheckboxes = document.querySelectorAll('.variation-checkbox[data-group="' + groupId + '"]');
+				variationCheckboxes.forEach(cb => cb.checked = isChecked);
+			}
+		</script>
 		<?php
 	}
 
