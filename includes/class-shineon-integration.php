@@ -199,7 +199,7 @@ class ShineOn_Integration {
 			return;
 		}
 
-		if ( empty( $products ) || ( is_array( $products ) && empty( $products['data'] ) ) ) {
+		if ( empty( $products ) || ( is_array( $products ) && empty( $products['skus'] ) ) ) {
 			?>
 			<div style="background: #e7f3ff; padding: 15px; border-left: 4px solid #0073aa; margin: 20px 0;">
 				<p style="margin: 0; color: #666;">
@@ -210,7 +210,7 @@ class ShineOn_Integration {
 			return;
 		}
 
-		$products_list = isset( $products['data'] ) ? $products['data'] : $products;
+		$products_list = isset( $products['skus'] ) ? $products['skus'] : $products;
 
 		?>
 		<table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
