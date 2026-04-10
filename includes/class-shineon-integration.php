@@ -3,10 +3,12 @@
 class ShineOn_Integration {
 
 	private $api_key;
-	private $api_base_url = 'https://api.shineon.com'; // Update with actual ShineOn API endpoint
+	private $api_base_url = 'https://api.shineon.com/v2';
+	private $modal;
 
 	public function __construct() {
 		$this->api_key = get_option( 'shineon_api_key' );
+		$this->modal = new ShineOn_Modal();
 		$this->init();
 	}
 
@@ -137,6 +139,7 @@ class ShineOn_Integration {
 				</div>
 			<?php else : ?>
 				<h3 style="margin-top: 0;">Your ShineOn Products</h3>
+				<p>Select products to import into WooCommerce.</p>
 				<?php $this->render_products_table(); ?>
 			<?php endif; ?>
 		</div>
@@ -152,7 +155,7 @@ class ShineOn_Integration {
 			return new WP_Error( 'no_api_key', 'API Key not configured' );
 		}
 
-		$url = 'https://api.shineon.com/v1/skus';
+		$url = $this->api_base_url . '/skus';
 
 		$args = array(
 			'method'  => 'GET',
@@ -180,6 +183,66 @@ class ShineOn_Integration {
 
 		$data = json_decode( $response_body, true );
 		return $data;
+	}
+
+	/**
+	 * Fetch product template image from ShineOn API with caching
+	 *
+	 * @param int $product_template_id The product template ID
+	 * @return string|null Image URL or null if not found
+	 */
+	private function fetch_product_template_image( $product_template_id ) {
+		$api_key = get_option( 'shineon_api_key' );
+		if ( ! $api_key || ! $product_template_id ) {
+			return null;
+		}
+
+		// Check cache first - store for 24 hours
+		$cache_key = 'shineon_template_' . intval( $product_template_id );
+		$cached_image = get_transient( $cache_key );
+		if ( false !== $cached_image ) {
+			return $cached_image ?: null;
+		}
+
+		$url = $this->api_base_url . '/product_templates/' . intval( $product_template_id );
+
+		$args = array(
+			'method'  => 'GET',
+			'headers' => array(
+				'Authorization' => 'Bearer ' . $api_key,
+				'Content-Type'  => 'application/json',
+			),
+			'timeout' => 10,
+		);
+
+		$response = wp_remote_request( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			// Cache the empty result for 1 hour to avoid repeated failed calls
+			set_transient( $cache_key, '', HOUR_IN_SECONDS );
+			return null;
+		}
+
+		$response_code = wp_remote_retrieve_response_code( $response );
+		if ( $response_code >= 400 ) {
+			// Cache the empty result for 1 hour to avoid repeated failed calls
+			set_transient( $cache_key, '', HOUR_IN_SECONDS );
+			return null;
+		}
+
+		$response_body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $response_body, true );
+
+		// The image is in transformations[0].layers.main
+		$image_url = null;
+		if ( isset( $data['transformations'] ) && is_array( $data['transformations'] ) && ! empty( $data['transformations'] ) ) {
+			$image_url = $data['transformations'][0]['layers']['main'] ?? null;
+		}
+
+		// Cache the result for 24 hours
+		set_transient( $cache_key, $image_url, DAY_IN_SECONDS );
+
+		return $image_url;
 	}
 
 	/**
@@ -268,18 +331,15 @@ class ShineOn_Integration {
 			.shineon-accordion-table tbody tr.accordion-variation {
 				display: none;
 			}
+			.shineon-accordion-table tbody tr.accordion-header.active ~ tr.accordion-variation {
+				display: table-row;
+			}
 			.shineon-accordion-table tbody tr.accordion-variation.expanded {
 				display: table-row;
 			}
 			.shineon-accordion-table tbody tr.accordion-variation td {
 				padding-left: 40px !important;
 				border-left: 3px solid #0073aa;
-			}
-			.accordion-toggle-icon {
-				display: inline-block;
-				margin-right: 8px;
-				font-weight: bold;
-				width: 20px;
 			}
 		</style>
 
@@ -293,28 +353,18 @@ class ShineOn_Integration {
 					<th>Title</th>
 					<th>Variant Title</th>
 					<th style="width: 100px;">Base Cost</th>
-					<th style="width: 150px;">Mask Image</th>
-					<th style="width: 150px; cursor: pointer;">
-						<a href="<?php echo esc_url( $created_sort_url ); ?>" style="color: inherit; text-decoration: none;">
-							Created
-							<?php 
-							if ( $orderby === 'created_at' ) {
-								echo $order === 'asc' ? ' ▲' : ' ▼';
-							}
-							?>
-						</a>
-					</th>
+					<th style="width: 150px;">Product Image</th>
+					<th style="width: 150px;">Created</th>
 				</tr>
 			</thead>
 			<tbody>
 				<?php $group_index = 0; foreach ( $grouped_products as $product_title => $variations ) : $group_index++; ?>
 					<!-- Product Group Header Row -->
-					<tr class="accordion-header" data-group="<?php echo $group_index; ?>" onclick="toggleAccordion(this, '<?php echo $group_index; ?>')">
+					<tr class="accordion-header active" data-group="<?php echo $group_index; ?>" onclick="toggleAccordion(this, '<?php echo $group_index; ?>')">
 						<td>
-							<input type="checkbox" class="group-checkbox" data-group="<?php echo $group_index; ?>" onclick="event.stopPropagation(); toggleGroupCheckbox(this, '<?php echo $group_index; ?>')">
+							<input type="radio" name="product_selection" class="group-radio" data-group="<?php echo $group_index; ?>" onclick="event.stopPropagation(); selectGroupRadio(this, '<?php echo $group_index; ?>')">
 						</td>
 						<td colspan="8">
-							<span class="accordion-toggle-icon">▶</span>
 							<strong><?php echo esc_html( $product_title ); ?></strong>
 							<span style="font-size: 12px; color: #666; margin-left: 10px;">
 								(<?php echo count( $variations ); ?> variation<?php echo count( $variations ) !== 1 ? 's' : ''; ?>)
@@ -326,7 +376,7 @@ class ShineOn_Integration {
 					<?php foreach ( $variations as $product ) : ?>
 						<tr class="accordion-variation" data-group="<?php echo $group_index; ?>">
 							<td>
-								<input type="checkbox" class="variation-checkbox" data-group="<?php echo $group_index; ?>" onclick="event.stopPropagation()">
+								<input type="checkbox" class="variation-checkbox" data-group="<?php echo $group_index; ?>" onclick="event.stopPropagation()" disabled>
 							</td>
 							<td>
 								<strong><?php echo esc_html( $product['sku'] ?? '—' ); ?></strong>
@@ -350,16 +400,9 @@ class ShineOn_Integration {
 								?>
 							</td>
 							<td>
-								<?php 
-								$mask_url = $product['artwork']['mask_src_url'] ?? null;
-								if ( $mask_url ) : 
-									?>
-									<a href="<?php echo esc_url( $mask_url ); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
-										View Image
-									</a>
-								<?php else : ?>
-									—
-								<?php endif; ?>
+								<a href="#" class="view-renders-btn" data-template-id="<?php echo esc_attr( $product['product_template_id'] ?? '' ); ?>" data-sku="<?php echo esc_attr( $product['sku'] ?? '' ); ?>" style="color: #0073aa; text-decoration: none; cursor: pointer;" onclick="event.preventDefault(); openRendersModal(this);">
+									View Renders
+								</a>
 							</td>
 							<td>
 								<?php 
@@ -383,24 +426,24 @@ class ShineOn_Integration {
 			<strong>Total Variations:</strong> <?php echo count( $products_list ); ?>
 		</p>
 
+		<?php $this->modal->render(); ?>
+
 		<script>
 			function toggleAccordion(headerElement, groupId) {
 				headerElement.classList.toggle('active');
 				const variations = document.querySelectorAll('.accordion-variation[data-group="' + groupId + '"]');
 				variations.forEach(row => row.classList.toggle('expanded'));
-				
-				const icon = headerElement.querySelector('.accordion-toggle-icon');
-				if (headerElement.classList.contains('active')) {
-					icon.textContent = '▼';
-				} else {
-					icon.textContent = '▶';
-				}
 			}
 
-			function toggleGroupCheckbox(checkbox, groupId) {
-				const isChecked = checkbox.checked;
-				const variationCheckboxes = document.querySelectorAll('.variation-checkbox[data-group="' + groupId + '"]');
-				variationCheckboxes.forEach(cb => cb.checked = isChecked);
+			function selectGroupRadio(radio, groupId) {
+				// Uncheck all variation checkboxes in all groups
+				document.querySelectorAll('.variation-checkbox').forEach(cb => cb.checked = false);
+				
+				// Check all variation checkboxes in the selected group
+				if (radio.checked) {
+					const variationCheckboxes = document.querySelectorAll('.variation-checkbox[data-group="' + groupId + '"]');
+					variationCheckboxes.forEach(cb => cb.checked = true);
+				}
 			}
 		</script>
 		<?php
