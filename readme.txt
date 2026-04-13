@@ -1,58 +1,41 @@
 === ShineOn for WooCommerce ===
-Tags: woocommerce, shineon, order fulfillment, api integration
+Contributors: mindedgifts
+Tags: woocommerce, shineon, shineon for woocommerce
 Requires at least: 5.0
-Tested up to: 6.5
+Tested up to: 6.4
+Requires PHP: 7.2
+License: GPLv2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Stable tag: 1.0
 
-ShineOn is a product fulfillment platform for WooCommerce.
+Automated integration for ShineOn print-on-demand products with WooCommerce. Import products, sync variations, and fulfill orders automatically.
 
 == Description ==
 
-ShineOn for WooCommerce integrates your WooCommerce store with the ShineOn API to automatically send order details for fulfillment.
+ShineOn for WooCommerce allows you to seamlessly integrate your ShineOn personalizable products with your WooCommerce store. This plugin automates the complex process of syncing product variations, managing high-quality renders, and sending orders directly to ShineOn for fulfillment.
 
-### What Do You Get with ShineOn?
+Allow your customers to see live previews of their personalized jewelry and ensure your order workflow is hands-free.
 
-* Automated order synchronization to ShineOn
-* Real-time order fulfillment
-* Easy API key configuration
-* Seamless WooCommerce integration
+== Free version ==
+Free version allow you to import from shineon to woocommerce products that does not need personalization especially with engraved products.
 
-### How Does ShineOn Work?
-
-1. Install and activate the ShineOn plugin
-2. Navigate to ShineOn settings in WordPress admin
-3. Enter your ShineOn API Key (get it from https://shineon.com)
-4. Orders will be automatically sent to ShineOn when marked as completed
-
-### About ShineOn
-
-ShineOn is a leading product fulfillment platform that handles printing, quality control, and shipping for your orders.
-
-For API documentation and setup instructions, visit: [ShineOn API Documentation](https://github.com/ShineOnCom/api/wiki/How-to-make-an-API-Request)
+== Pro version ==
+Everything in free but also custom text fields for product personalization, product image upload, product page addon, post purchase upsell.
 
 == Installation ==
 
-1. Upload 'shineon-for-woocommerce' to the '/wp-content/plugins/' directory
-2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to ShineOn menu in WordPress admin to configure your API key
-4. Start receiving orders in ShineOn automatically
+1. Upload the `shineon-for-woocommerce` folder to the `/wp-content/plugins/` directory.
+2. Activate the plugin through the 'Plugins' menu in WordPress.
+3. Visit the ShineOn menu in your admin sidebar to configure your API key.
+4. Go to 'Find Products' to start importing your ShineOn catalog.
 
-== Configuration ==
+== Screenshots ==
 
-1. In WordPress admin, go to ShineOn menu
-2. Enter your ShineOn API Key
-3. Save settings
-4. Orders with status "Completed" will be automatically sent to ShineOn API
-
-== Requirements ==
-
-* WordPress 5.0 or higher
-* WooCommerce 2.1 or higher
-* Active ShineOn account with valid API key
+1. The ShineOn product import interface.
+2. Settings page for API configuration.
+3. Example of an imported variable product on the frontend.
 
 == Changelog ==
 
 = 1.0 =
-* Initial release
-* Basic order integration with ShineOn API
-* API key configuration in admin panel
+* Initial release with automated product import and V2 Order API integration.

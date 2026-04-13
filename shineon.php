@@ -12,6 +12,9 @@
 if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) ) {
 
 	function shineon_init() {
+		if ( ! class_exists( 'ShineOn_Settings' ) ) {
+			require_once 'includes/class-shineon-settings.php';
+		}
 		if ( ! class_exists( 'ShineOn_Modal' ) ) {
 			require_once 'includes/class-shineon-modal.php';
 		}
