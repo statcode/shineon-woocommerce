@@ -1,6 +1,6 @@
 # ShineOn for WooCommerce
 
-A WordPress plugin that integrates WooCommerce with the ShineOn API for automated order fulfillment.
+A WordPress plugin that integrates WooCommerce with the ShineOn API for automated order fulfillment. This is the unofficial plugin for ShineOn.
 
 ## Features
 
@@ -26,11 +26,6 @@ A WordPress plugin that integrates WooCommerce with the ShineOn API for automate
 3. Generate or copy your API key
 4. Paste it into the ShineOn settings page in WordPress
 
-### API Documentation
-
-For complete API documentation and request formats, visit:
-https://github.com/ShineOnCom/api/wiki/How-to-make-an-API-Request
-
 ## Usage
 
 Once activated and configured:
@@ -49,8 +44,3 @@ Once activated and configured:
 ## Version
 
 1.0 - Initial release
-
-## Support
-
-For issues or questions about the ShineOn API, visit:
-https://github.com/ShineOnCom/api

@@ -1,0 +1,98 @@
+/* ShineOn WooCommerce Payments - Checkout Fixes */
+
+/* Fix Card Field Labels Mismatch/Overlap */
+.wc-block-checkout__payment-method .wc-block-components-checkout-step__payment-method-fieldset .wc-block-components-text-input label,
+.wc-block-checkout__payment-method .wc-block-components-checkout-step__payment-method-fieldset .wc-card-number-element label {
+    transform: translateY(-4px) scale(0.85);
+    background: #fff;
+    padding: 0 5px;
+    left: 8px !important;
+    z-index: 10;
+}
+
+/* Ensure card fields have consistent height and spacing */
+.wc-block-components-checkout-step__payment-method-fieldset .wc-block-components-text-input,
+.wc-block-components-checkout-step__payment-method-fieldset .wc-card-number-element {
+    margin-bottom: 20px !important;
+}
+
+/* Align Payment Method Radio Buttons */
+.wc-block-checkout__payment-method .wc-block-components-radio-control-item__input {
+    margin-top: 2px !important;
+}
+
+/* Fix Cash App / Afterpay Separator and Spacing */
+.wc-block-checkout__payment-method .wc-block-components-radio-control-item__label {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+}
+
+/* Reduce excessive padding in the card details box */
+.wc-block-checkout__payment-method .wc-block-components-checkout-step__payment-method-fieldset {
+    padding-bottom: 15px !important;
+    margin-top: 10px !important;
+}
+
+/* Professional look for 'Use test card' copies */
+.wc-block-components-checkout-step__payment-method-fieldset .wc-block-components-notice.is-info {
+    border-radius: 8px;
+    font-size: 13px;
+    background-color: #f0f7ff;
+    border: 1px solid #d0e5ff;
+}
+
+/* Scroll-to-top button - lower z-index if needed */
+.ast-scroll-to-top {
+    z-index: 99 !important;
+}
+
+/* --- WooPay Express Checkout Full Width Fixes --- */
+
+/* Force the express checkout wrapper to take a full row */
+.wcpay-express-checkout-wrapper {
+    width: 100% !important;
+    display: block !important;
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 25px !important;
+    float: none !important;
+    clear: both !important;
+}
+
+/* Ensure the purple WooPay button spans the width or stays centered */
+#wcpay-woopay-button, 
+.woopay-express-checkout-button,
+.wcpay-express-checkout-button-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+}
+
+/* Center and properly space the "OR" separator */
+#wcpay-express-checkout-button-separator {
+    width: 100% !important;
+    display: block !important;
+    text-align: center !important;
+    margin: 20px 0 !important;
+    flex: 0 0 100% !important;
+}
+
+/* Fix Contact Information Header from wrapping around the button */
+#customer_details h3, 
+.wc-block-checkout__contact-fields h3 {
+    clear: both !important;
+    display: block !important;
+    width: 100% !important;
+    padding-top: 15px !important;
+}
+
+/* Fix Billing Email field width and alignment */
+#billing_email_field, 
+.woopay-billing-email-field {
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    display: block !important;
+}
