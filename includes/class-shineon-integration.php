@@ -37,6 +37,9 @@ class ShineOn_Integration {
 		
 		// Enqueue frontend CSS for checkout fixes
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
+		
+		// Force variation prices to always show on the frontend, even if all variations cost the same
+		add_filter( 'woocommerce_show_variation_price', '__return_true' );
 	}
 
 	/**
@@ -333,7 +336,7 @@ class ShineOn_Integration {
 								<h2><span class="dashicons dashicons-lock"></span> Your License</h2>
 								<p class="instr">
 									Enter your ShineOn API key to authenticate and synchronize products. 
-									Don't have a key? <a href="https://app.shineon.com/settings/api" target="_blank" class="shineon-link">Get it from ShineOn App</a>.
+									Don't have a key? <a href="https://app.shineon.com/api" target="_blank" class="shineon-link">Get it from ShineOn App</a>.
 								</p>
 								<div class="shineon-input-group">
 									<input type="text" name="<?php echo ShineOn_Settings::API_KEY_OPTION; ?>" value="<?php echo esc_attr( ShineOn_Settings::get_api_key() ); ?>" placeholder="Paste your API key here">
@@ -1029,7 +1032,7 @@ class ShineOn_Integration {
 			'order' => array(
 				'source_id'                 => (string) $order->get_id(),
 				'email'                     => $order->get_billing_email(),
-				'test'                      => ShineOn_Settings::TEST_MODE,
+				'test'                      => ShineOn_Settings::is_test_mode(),
 				'shipment_notification_url' => get_rest_url( null, 'shineon/v1/shipment-notification' ),
 				'line_items'                => $shineon_items,
 				'total_price'               => (float) $order->get_total(),
