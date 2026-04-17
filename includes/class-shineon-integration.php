@@ -17,16 +17,13 @@ class ShineOn_Integration {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 
-		// Fix for WooPayments disabling Add to Cart button on product pages
-		add_filter( 'wcpay_payment_request_is_product_supported', '__return_false', 100 );
-		add_filter( 'wcpay_is_woopay_enabled', '__return_false', 100 );
-		
-		// Send order to ShineOn API when order is paid/completed
+		// AJAX handler for importing products
+		add_action( 'wp_ajax_shineon_init_import', array( $this, 'handle_init_import' ) );
 		add_action( 'woocommerce_order_status_processing', array( $this, 'send_order_to_shineon' ) );
 		add_action( 'woocommerce_order_status_completed', array( $this, 'send_order_to_shineon' ) );
 
-		// Frontend defensive script for WooPayments conflict
-		add_action( 'wp_footer', array( $this, 'inject_defensive_js' ) );
+		// Enqueue frontend assets
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
 
 		// AJAX handler for importing products
 		add_action( 'wp_ajax_shineon_init_import', array( $this, 'handle_init_import' ) );
@@ -35,20 +32,80 @@ class ShineOn_Integration {
 		add_action( 'wp_ajax_shineon_get_renders', array( $this->modal, 'ajax_get_renders' ) );
 		add_action( 'wp_ajax_shineon_get_template_image', array( $this, 'ajax_get_template_image' ) );
 		
-		// Enqueue frontend CSS for checkout fixes
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
-		
-		// Force variation prices to always show on the frontend, even if all variations cost the same
-		add_filter( 'woocommerce_show_variation_price', '__return_true' );
 	}
 
 	/**
-	 * Enqueue checkout CSS fixes
+	 * Enqueue checkout CSS fixes and product page fixes
 	 */
 	public function enqueue_frontend_assets() {
+		$plugin_url = plugin_dir_url( __FILE__ ) . '../';
+		
 		if ( is_checkout() || is_checkout_pay_page() ) {
-			wp_enqueue_style( 'shineon-checkout-fixes', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/css/checkout-fixes.css', array(), '1.1.0' );
+			wp_enqueue_style( 'shineon-checkout-fixes', $plugin_url . 'assets/css/checkout-fixes.css', array(), '1.1.0' );
 		}
+
+		if ( is_product() ) {
+			// Inject CSS and JS on product pages
+			add_action( 'wp_head', array( $this, 'inject_product_css' ), 99 );
+			add_action( 'wp_footer', array( $this, 'inject_product_js' ) );
+		}
+	}
+
+	/**
+	 * Force price visibility via CSS (overrides any JS-injected display:none)
+	 */
+	public function inject_product_css() {
+		?>
+		<style id="shineon-product-fixes">
+		.single-product div.product p.price,
+		.single-product .entry-summary p.price,
+		.single-product .summary p.price {
+			display: block !important;
+			visibility: visible !important;
+			opacity: 1 !important;
+			height: auto !important;
+			overflow: visible !important;
+		}
+		</style>
+		<?php
+	}
+
+	/**
+	 * JS to trigger default variation selection after WooCommerce loads,
+	 * ensuring the price and button state are correctly initialised.
+	 */
+	public function inject_product_js() {
+		?>
+		<script type="text/javascript">
+		jQuery(function($) {
+			// When the WooCommerce variation form is initialised, re-trigger the
+			// selected default so the variation price + button state are set correctly.
+			$('form.variations_form').on('wc_variation_form', function() {
+				var $form = $(this);
+				setTimeout(function() {
+					$form.find('.variations select').each(function() {
+						if ($(this).val()) {
+							$(this).trigger('change');
+						}
+					});
+				}, 150);
+			});
+
+			// Fallback: trigger after 600ms if WC JS has already initialised
+			setTimeout(function() {
+				var $form = $('form.variations_form');
+				if (!$form.length) return;
+				var allSelected = true;
+				$form.find('.variations select').each(function() {
+					if (!$(this).val()) allSelected = false;
+				});
+				if (allSelected) {
+					$form.trigger('check_variations');
+				}
+			}, 600);
+		});
+		</script>
+		<?php
 	}
 
 	/**
@@ -1133,6 +1190,7 @@ class ShineOn_Integration {
 			$product = new WC_Product_Variable();
 			$product->set_name( $product_name );
 			$product->set_status( 'draft' );
+			$product->set_weight( 0.2 ); // Set a default weight to prevent shipping calculator failures
 
 			// Detect attributes from the variations
 			$attributes = array();
@@ -1313,6 +1371,11 @@ class ShineOn_Integration {
 
 			$variation->set_status( 'publish' );
 			$variation->set_manage_stock( false );
+			
+			// Set weight to prevent real-time shipping carrier errors (USPS, FedEx, etc.)
+			$weight = isset( $v['weight'] ) && $v['weight'] !== '' ? floatval( $v['weight'] ) : 0.2;
+			$variation->set_weight( $weight );
+			
 			$variation->save();
 
 			// Meta for reference
@@ -1578,32 +1641,5 @@ class ShineOn_Integration {
 		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}
 
-	/**
-	 * Inject defensive JS to handle conflicts with WooPayments/WooPay
-	 */
-	public function inject_defensive_js() {
-		if ( ! is_product() ) {
-			return;
-		}
-		?>
-		<script type="text/javascript">
-		jQuery(function($) {
-			$(document.body).on('found_variation', function(event, variation) {
-				// Force enable the button when a valid variation is selected
-				var $button = $('.single_add_to_cart_button');
-				if (variation && variation.variation_id > 0) {
-					$button.removeClass('disabled wc-variation-is-unavailable').prop('disabled', false);
-					// Debug log to confirm it fired
-					console.log('ShineOn Compatibility: Variation found ' + variation.variation_id + ', forcing button enable.');
-				}
-			});
 
-			$(document.body).on('reset_data', function() {
-				// Re-disable if no variation is selected (Standard WooCommerce behavior)
-				$('.single_add_to_cart_button').addClass('disabled').prop('disabled', true);
-			});
-		});
-		</script>
-		<?php
-	}
 }
